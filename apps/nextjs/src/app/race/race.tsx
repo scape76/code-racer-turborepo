@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import type { User } from "next-auth";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { Snippet } from "@code-racer/db";
+import { Race, Snippet } from "@code-racer/db";
 import {
   Tooltip,
   TooltipContent,
@@ -18,12 +18,13 @@ import { saveUserResultAction } from "../_actions/result";
 import RaceDetails from "./_components/race-details";
 import RaceTimer from "./race-timer";
 import { Socket, io } from "socket.io-client";
+import type { Race as RaceType } from "@code-racer/db";
 
 let socket: Socket;
 
 function getSocketConnection() {
   if (!socket) {
-    socket = io("http://localhost:3001");
+    socket = io("http://localhost:3001/");
   }
 
   socket.on("connect", () => {
@@ -49,10 +50,13 @@ function calculateAccuracy(
 export default function Race({
   user,
   snippet,
+  raceId,
 }: {
   user?: User;
   snippet: Snippet;
+  raceId?: string;
 }) {
+  console.log({ raceId });
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [input, setInput] = useState("");
   const [textIndicatorPosition, setTextIndicatorPosition] = useState<
@@ -101,6 +105,7 @@ export default function Race({
 
   // Connection to wss
   useEffect(() => {
+    if (!raceId) return;
     getSocketConnection();
     console.log("socket", socket);
     return () => {

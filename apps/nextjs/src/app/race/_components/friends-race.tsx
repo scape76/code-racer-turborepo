@@ -5,7 +5,7 @@ import { Users } from "lucide-react";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/components/ui/use-toast";
-import { createPrivateRaceRoom } from "@/app/_actions/room";
+import { createPrivateRaceRoom } from "@/app/_actions/race";
 
 export default function FriendsRace() {
   const [languagePrivate, setLanguagePrivate] = useState("");
