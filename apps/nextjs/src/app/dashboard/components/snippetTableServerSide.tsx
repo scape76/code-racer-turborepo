@@ -3,13 +3,7 @@ import { prisma } from "@code-racer/db";
 import { SnippetsHist } from "./snippetHist";
 import { User } from "next-auth";
 
-interface SnippetTableServerSideProps {
-  user: User;
-}
-
-export default async function SnippetTableServerSide({
-  user,
-}: SnippetTableServerSideProps) {
+export default async function SnippetTableServerSide({ user }: { user: User }) {
   const recentSnippets = await prisma.snippet.findMany({
     where: {
       userId: user.id,

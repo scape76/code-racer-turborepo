@@ -1,0 +1,23 @@
+{
+  "name": "@code-racer/wss",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "./index.ts",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"tsup src --watch\"  \"node --watch dist/index.js\"",
+    "build": "tsup src --minify --clean",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@code-racer/db": "workspace:*",
+    "@code-racer/eslint-config": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^7.1.0",
+    "dotenv-cli": "^7.2.1",
+    "prisma": "^5.0.0",
+    "typescript": "^5.1.6",
+    "concurrently": "^8.2.0"
+  }
+}

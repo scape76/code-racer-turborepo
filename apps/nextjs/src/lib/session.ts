@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 
-import { nextAuthOptions } from "@/app/api/auth/[...nextauth]/route";
+import { nextAuthOptions } from "@code-racer/auth";
 
 export function getSession() {
   return getServerSession(nextAuthOptions);

@@ -16,11 +16,7 @@ import RaceTracker from "./race-tracker";
 import Code from "./code";
 import { saveUserResultAction } from "../_actions/result";
 import RaceDetails from "./_components/race-details";
-
-interface RaceProps {
-  user?: User;
-  snippet: Snippet;
-}
+import RaceTimer from "./race-timer";
 
 function calculateCPM(
   numberOfCharacters: number,
@@ -34,18 +30,23 @@ function calculateAccuracy(
   numberOfCharacters: number,
   errorsCount: number,
 ): number {
-  return 1 - errorsCount / numberOfCharacters;
+  return (1 - errorsCount / numberOfCharacters) * 100;
 }
 
-export default function Race({ user, snippet }: RaceProps) {
+export default function Race({
+  user,
+  snippet,
+}: {
+  user?: User;
+  snippet: Snippet;
+}) {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [input, setInput] = useState("");
-  const [shiftKeyPressed, setShiftKeyPressed] = useState(false);
   const [textIndicatorPosition, setTextIndicatorPosition] = useState<
     number | number[]
   >(0);
   const [submittingResults, setSubmittingResults] = useState(false);
-
+  const [totalErrors, setTotalErrors] = useState(0);
   const router = useRouter();
   const inputElement = useRef<HTMLInputElement | null>(null);
   const code = snippet.code.trimEnd();
@@ -56,9 +57,8 @@ export default function Race({ user, snippet }: RaceProps) {
     .map((char, index) => (char !== currentText[index] ? index : -1))
     .filter((index) => index !== -1);
 
-  const errorTotal = errors.length;
-
   const isRaceFinished = input === code;
+  const showRaceTimer = !!startTime && !isRaceFinished;
 
   async function endRace() {
     if (!startTime) return;
@@ -68,9 +68,9 @@ export default function Race({ user, snippet }: RaceProps) {
     if (user) {
       const result = await saveUserResultAction({
         timeTaken,
-        errors: errorTotal,
+        errors: totalErrors,
         cpm: calculateCPM(code.length - 1, timeTaken),
-        accuracy: calculateAccuracy(code.length - 1, errorTotal),
+        accuracy: calculateAccuracy(code.length - 1, totalErrors),
         snippetId: snippet.id,
       });
 
@@ -91,6 +91,7 @@ export default function Race({ user, snippet }: RaceProps) {
     if (isRaceFinished) {
       endRace();
     }
+    focusOnLoad();
   }, [input]);
 
   useEffect(() => {
@@ -99,7 +100,6 @@ export default function Race({ user, snippet }: RaceProps) {
         handleRestart();
       }
     };
-
     document.addEventListener("keydown", handleRestartKey);
     return () => {
       document.removeEventListener("keydown", handleRestartKey);
@@ -113,6 +113,8 @@ export default function Race({ user, snippet }: RaceProps) {
   }
 
   function handleKeyboardDownEvent(e: React.KeyboardEvent<HTMLInputElement>) {
+    console.log(e.key);
+    console.log("hit");
     if (!startTime) {
       setStartTime(new Date());
     }
@@ -122,16 +124,35 @@ export default function Race({ user, snippet }: RaceProps) {
       e.currentTarget.blur();
       return;
     }
+    // Reload Control + r
+    if (e.ctrlKey && e.key === "r") {
+      e.preventDefault;
+      return;
+    }
+
+    // Catch Alt Gr - Please confirm I am unable to test this
+    if (e.ctrlKey && e.altKey) {
+      e.preventDefault();
+    }
 
     const noopKeys = [
       "Alt",
       "ArrowUp",
       "ArrowDown",
       "Control",
-      "Escape",
       "Meta",
       "CapsLock",
       "Shift",
+      "altGraphKey", // - Please confirm I am unable to test this
+      "AltGraph", // - Please confirm I am unable to test this
+      "ContextMenu",
+      "Insert",
+      "Delete",
+      "PageUp",
+      "PageDown",
+      "Home",
+      "OS",
+      "NumLock",
     ];
 
     if (noopKeys.includes(e.key)) {
@@ -145,10 +166,10 @@ export default function Race({ user, snippet }: RaceProps) {
           Enter();
           break;
         case "ArrowLeft":
-          ArrowLeft();
+          ArrowLeft(e);
           break;
         case "ArrowRight":
-          ArrowRight();
+          ArrowRight(e);
           break;
         case "Tab":
           e.preventDefault();
@@ -161,10 +182,10 @@ export default function Race({ user, snippet }: RaceProps) {
     }
   }
 
-  function ArrowRight() {
+  function ArrowRight(e: React.KeyboardEvent<HTMLInputElement>) {
     if (textIndicatorPosition === input.length) return;
 
-    if (!shiftKeyPressed) {
+    if (!e.shiftKey) {
       setTextIndicatorPosition((prevTextIndicatorPosition) => {
         if (typeof prevTextIndicatorPosition === "number") {
           return prevTextIndicatorPosition + 1;
@@ -175,32 +196,16 @@ export default function Race({ user, snippet }: RaceProps) {
       });
     }
 
-    if (shiftKeyPressed) {
+    if (e.shiftKey && e.key === "ArrowRight") {
       setTextIndicatorPosition((prevTextIndicatorPosition) => {
         if (typeof prevTextIndicatorPosition === "number") {
-          const array = [
-            prevTextIndicatorPosition + 1,
-            prevTextIndicatorPosition,
-          ];
+          const array = [prevTextIndicatorPosition + 1];
           return array;
-        } else if (prevTextIndicatorPosition.at(-1) !== input.length) {
-          if (prevTextIndicatorPosition.length !== 1) {
-            // Since the array's format is in descending order
-            // we pop it to get rid of the last value, thus
-            // moving the text position forward.
-            const array = [...prevTextIndicatorPosition];
-            array.pop();
-            return array;
-
-            /** Can't find a way to conditionally let it function in
-             *  a specific way (right or left).
-             */
-            // const lastValue = prevTextIndicatorPosition.at(-1) as number;
-            // const array = [lastValue + 1, ...prevTextIndicatorPosition];
-            // return array;
-          } else {
-            return prevTextIndicatorPosition[0] + 1;
-          }
+        } else if (prevTextIndicatorPosition.at(1) !== 1) {
+          const array = [...prevTextIndicatorPosition];
+          const lastValue = prevTextIndicatorPosition.at(-1) as number;
+          array.push(lastValue + 1);
+          return array;
         } else {
           return prevTextIndicatorPosition;
         }
@@ -208,8 +213,8 @@ export default function Race({ user, snippet }: RaceProps) {
     }
   }
 
-  function ArrowLeft() {
-    if (!shiftKeyPressed) {
+  function ArrowLeft(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!e.shiftKey) {
       if (textIndicatorPosition !== 0) {
         setTextIndicatorPosition((prevTextIndicatorPosition) => {
           if (typeof prevTextIndicatorPosition === "number") {
@@ -222,7 +227,7 @@ export default function Race({ user, snippet }: RaceProps) {
       }
     }
 
-    if (shiftKeyPressed) {
+    if (e.shiftKey && e.key === "ArrowLeft") {
       setTextIndicatorPosition((prevTextIndicatorPosition) => {
         if (typeof prevTextIndicatorPosition === "number") {
           // if it's still not an array, then convert it to an
@@ -247,11 +252,13 @@ export default function Race({ user, snippet }: RaceProps) {
   }
 
   function Tab() {
-    // setInput(input + "  ");
-    setInput((prevInput) => prevInput + "  ");
+    const nextTabStop = 4 - (input.length % 4);
+    const tabSpace = " ".repeat(nextTabStop);
+
+    setInput(input + tabSpace);
     setTextIndicatorPosition((prevTextIndicatorPosition) => {
       if (typeof prevTextIndicatorPosition === "number") {
-        return prevTextIndicatorPosition + 2;
+        return prevTextIndicatorPosition + tabSpace.length;
       } else {
         return prevTextIndicatorPosition;
       }
@@ -308,16 +315,6 @@ export default function Race({ user, snippet }: RaceProps) {
   }
 
   function Enter() {
-    if (Array.isArray(textIndicatorPosition)) {
-      // delete the highlighted text first
-      // if the textIndicatorPosition is an array
-      Backspace();
-
-      // remove the comment from the return to see
-      // it move to a new line
-      return;
-    }
-
     let indentLength = 0;
     let newChars = "";
     // indent until the first newline
@@ -332,17 +329,15 @@ export default function Race({ user, snippet }: RaceProps) {
     indentLength = 0;
     while (
       indentLength + newChars.length + input.length + 1 < code.length &&
-      code[indentLength + newChars.length + input.length + 1] === " "
+      code[indentLength + newChars.length + input.length] === " "
     ) {
       indentLength++;
     }
-    if (indentLength > 0) {
-      newChars += " ".repeat(indentLength + 1);
+    if (indentLength >= 0) {
+      newChars += " ".repeat(indentLength);
     }
 
-    setInput((prevInput) =>
-      (prevInput + newChars).substring(0, code.length - 1),
-    );
+    setInput(input + newChars);
 
     setTextIndicatorPosition((prevTextIndicatorPosition) => {
       if (typeof prevTextIndicatorPosition === "number") {
@@ -354,6 +349,10 @@ export default function Race({ user, snippet }: RaceProps) {
   }
 
   function Key(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== code.slice(input.length, input.length + 1)) {
+      setTotalErrors(totalErrors + 1);
+    }
+
     if (!Array.isArray(textIndicatorPosition)) {
       if (textIndicatorPosition === input.length) {
         setInput((prevInput) => prevInput + e.key);
@@ -382,7 +381,7 @@ export default function Race({ user, snippet }: RaceProps) {
 
     if (Array.isArray(textIndicatorPosition)) {
       Backspace();
-      setInput((prevInput) => prevInput + e.key);
+      setInput(input + e.key);
     }
 
     setTextIndicatorPosition((prevTextIndicatorPosition) => {
@@ -398,6 +397,7 @@ export default function Race({ user, snippet }: RaceProps) {
     setStartTime(null);
     setInput("");
     setTextIndicatorPosition(0);
+    setTotalErrors(0);
   }
 
   return (
@@ -433,7 +433,8 @@ export default function Race({ user, snippet }: RaceProps) {
           className="absolute inset-y-0 left-0 w-full h-full p-8 rounded-md -z-40 focus:outline outline-blue-500"
           onPaste={(e) => e.preventDefault()}
         />
-        <div className="self-start">
+
+        <div className="flex justify-between">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -446,6 +447,7 @@ export default function Race({ user, snippet }: RaceProps) {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          {showRaceTimer && <RaceTimer />}
         </div>
       </div>
 

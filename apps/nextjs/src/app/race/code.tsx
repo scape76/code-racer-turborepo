@@ -1,16 +1,16 @@
 import { cn } from "@/lib/utils";
-interface CodeProps {
-  code: string;
-  userInput: string;
-  textIndicatorPosition: number | number[];
-  errors: number[];
-}
+
 export default function Code({
   code,
   errors,
   userInput,
   textIndicatorPosition,
-}: CodeProps) {
+}: {
+  code: string;
+  userInput: string;
+  textIndicatorPosition: number | number[];
+  errors: number[];
+}) {
   function textIndicatorPositionDeterminer(charIndex: number) {
     if (!Array.isArray(textIndicatorPosition)) {
       return charIndex === textIndicatorPosition;
@@ -20,6 +20,16 @@ export default function Code({
           return true;
         }
       }
+    }
+  }
+
+  function verifyErrors(errors: number[]) {
+    if (errors.length > 0) {
+      return (
+        <span className="text-red-500">
+          You must fix all errors before you can finish the race!
+        </span>
+      );
     }
   }
 
@@ -34,7 +44,7 @@ export default function Code({
                 code[index] !== " " && errors.includes(index),
               "border-red-500 opacity-100":
                 code[index] === " " && errors.includes(index),
-              "bg-yellow-200 opacity-80 text-monochrome":
+              "bg-yellow-200 opacity-80 text-black":
                 textIndicatorPositionDeterminer(index),
               "opacity-100":
                 userInput.length !== index && userInput[index] === char,
@@ -52,11 +62,7 @@ export default function Code({
           </span>
         ))}
       </pre>
-      {errors.length > 0 && (
-        <span className="text-red-500">
-          You must fix all errors before you can finish the race!
-        </span>
-      )}
+      {verifyErrors(errors)}
     </>
   );
 }
