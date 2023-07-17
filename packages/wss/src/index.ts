@@ -1,5 +1,4 @@
 import http from "node:http";
-import cors from "cors";
 import express from "express";
 import { Server } from "socket.io";
 
