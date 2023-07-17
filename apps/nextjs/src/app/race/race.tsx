@@ -17,6 +17,19 @@ import Code from "./code";
 import { saveUserResultAction } from "../_actions/result";
 import RaceDetails from "./_components/race-details";
 import RaceTimer from "./race-timer";
+import { Socket, io } from "socket.io-client";
+
+let socket: Socket;
+
+function getSocketConnection() {
+  if (!socket) {
+    socket = io("http://localhost:3001");
+  }
+
+  socket.on("connect", () => {
+    console.log("connected");
+  });
+}
 
 function calculateCPM(
   numberOfCharacters: number,
@@ -85,6 +98,15 @@ export default function Race({
 
     setSubmittingResults(false);
   }
+
+  // Connection to wss
+  useEffect(() => {
+    getSocketConnection();
+    console.log("socket", socket);
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   // Check if race is finished
   useEffect(() => {
