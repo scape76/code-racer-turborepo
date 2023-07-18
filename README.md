@@ -1,5 +1,5 @@
 <div align="center" >
-  <img src="./public/static/logo.png" width="60">
+  <img src="./apps/nextjs/public/static/logo.png" width="60">
   <br/>
   <h1>Code Racer</h1>
 </div>
