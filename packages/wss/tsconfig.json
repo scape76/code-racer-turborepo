@@ -1,7 +1,10 @@
 {
     "extends": "../../tsconfig.json",
-    "include": ["src/**.ts"],
+    "include": [
+        "src/**.ts"
+    ],
     "compilerOptions": {
-        "incremental": false
+        "incremental": false,
+        "strict": true
     }
 }

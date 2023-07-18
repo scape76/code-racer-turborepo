@@ -1,10 +1,10 @@
-import EventEmitter from "node:events"
 import http from "node:http"
 import express from "express"
 import { Server } from "socket.io"
 
-import { RaceParticipant, type Race } from "@code-racer/db"
+import { prisma, RaceParticipant, type Race } from "@code-racer/db"
 
+// import { prisma } from "../../db/dist"
 import { SocketEvents, SocketPayload } from "./events"
 import { explode, RaceFullException } from "./exceptions"
 import {
@@ -29,6 +29,7 @@ class Game {
     private static readonly START_GAME_COUNTDOWN = 5
     private static readonly MAX_PARTICIPANTS_PER_RACE = 4
     private static readonly GAME_LOOP_INTERVAL = 2000
+    private activeCountdowns = new Map<Race["id"], Promise<void>>()
 
     private races = new Map<
         Race["id"],
@@ -43,7 +44,10 @@ class Game {
         }
     >()
 
-    constructor(private server: typeof io) {
+    constructor(
+        private server: typeof io,
+        private db: typeof prisma,
+    ) {
         this.initialize()
     }
 
@@ -102,14 +106,21 @@ class Game {
                 position: 0,
             })
             this.startRaceCountdown(parsedPayload.raceId)
-                .then(() => {
-                    this.startRace(parsedPayload.raceId)
-                })
-                .catch(console.error)
         }
+
+        // Attach an event listener to the "GAME_START" event to start the race.
+        this.server.on(
+            `RACE_${parsedPayload.raceId}`,
+            (payload: SocketPayload) => {
+                if (payload.type === "GAME_START") {
+                    this.startRace(parsedPayload.raceId)
+                }
+            },
+        )
 
         console.log("Races: ", this.races)
 
+        // Emit to all players in the room that a new player has joined.
         this.server.emit(`RACE_${parsedPayload.raceId}`, {
             type: "USER_RACE_ENTER",
             payload: {
@@ -176,10 +187,22 @@ class Game {
         } as SocketPayload)
 
         this.races.delete(raceId)
+        this.db.race.update({
+            where: {
+                id: raceId,
+            },
+            data: {
+                endedAt: new Date(),
+            },
+        })
     }
 
     private startRaceCountdown(raceId: string) {
-        return new Promise<void>((resolve) => {
+        if (this.activeCountdowns.has(raceId)) {
+            return
+        }
+
+        const countdownPromise = new Promise<void>((resolve) => {
             let countdown = Game.START_GAME_COUNTDOWN
             const interval = setInterval(() => {
                 this.server.emit(`RACE_${raceId}`, {
@@ -197,11 +220,15 @@ class Game {
                     resolve()
                 }
             }, 1000)
+        }).then(() => {
+            this.activeCountdowns.delete(raceId)
         })
+
+        this.activeCountdowns.set(raceId, countdownPromise)
     }
 }
 
 server.listen(PORT, () => {
     console.log(`WS Server listening on port ${PORT}`)
-    new Game(io)
+    new Game(io, prisma)
 })
