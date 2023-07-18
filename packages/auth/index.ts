@@ -1,18 +1,19 @@
-import { env } from "./env.mjs";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import type { UserRole } from "@code-racer/db";
-import type { AuthOptions, DefaultSession } from "next-auth";
-import NextAuth from "next-auth";
-import GithubProvider from "next-auth/providers/github";
+import { PrismaAdapter } from "@next-auth/prisma-adapter"
+import type { AuthOptions, DefaultSession } from "next-auth"
+import NextAuth from "next-auth"
+import GithubProvider from "next-auth/providers/github"
 
-import { prisma } from "@code-racer/db";
+import type { UserRole } from "@code-racer/db"
+import { prisma } from "@code-racer/db"
+
+import { env } from "./env.mjs"
 
 declare module "next-auth" {
     interface Session extends DefaultSession {
         user: {
-            id: string;
-            role: UserRole;
-        } & DefaultSession["user"];
+            id: string
+            role: UserRole
+        } & DefaultSession["user"]
     }
 }
 
@@ -34,13 +35,13 @@ export const nextAuthOptions = {
                 where: {
                     email: token.email,
                 },
-            });
+            })
 
             if (!dbUser) {
                 if (user) {
-                    token.id = user.id;
+                    token.id = user.id
                 }
-                return token;
+                return token
             }
 
             return {
@@ -49,20 +50,20 @@ export const nextAuthOptions = {
                 email: dbUser.email,
                 role: dbUser.role,
                 picture: dbUser.image,
-            };
+            }
         },
         session({ token, session }) {
             if (token) {
-                session.user.id = token.id;
-                session.user.name = token.name;
-                session.user.email = token.email;
-                session.user.role = token.role;
-                session.user.image = token.picture;
+                session.user.id = token.id
+                session.user.name = token.name
+                session.user.email = token.email
+                session.user.role = token.role
+                session.user.image = token.picture
             }
 
-            return session;
+            return session
         },
     },
-} satisfies AuthOptions;
+} satisfies AuthOptions
 
-export const handler = NextAuth(nextAuthOptions);
+export const handler = NextAuth(nextAuthOptions)

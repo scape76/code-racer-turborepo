@@ -18,7 +18,22 @@ import { saveUserResultAction } from "../_actions/result";
 import RaceDetails from "./_components/race-details";
 import RaceTimer from "./race-timer";
 import { Socket, io } from "socket.io-client";
-import type { Race as RaceType } from "@code-racer/db";
+import type { RaceParticipant } from "@code-racer/db";
+import { endRaceAction } from "../_actions/race";
+import {
+  gameStateUpdatePayloadSchema,
+  type GameStateUpdatePayload,
+  type ParticipantRacePayload,
+  participantRacePayloadSchema,
+  raceParticipantNotificationSchema,
+  gameStartCountdownPayloadSchema,
+} from "@code-racer/wss/dist/schemas";
+import type { SocketEvent, SocketPayload } from "@code-racer/wss/dist/events";
+
+type Participant = Omit<
+  GameStateUpdatePayload["raceState"]["participants"][number],
+  "socketId"
+>;
 
 let socket: Socket;
 
@@ -26,10 +41,6 @@ function getSocketConnection() {
   if (!socket) {
     socket = io("http://localhost:3001/");
   }
-
-  socket.on("connect", () => {
-    console.log("connected");
-  });
 }
 
 function calculateCPM(
@@ -51,13 +62,21 @@ export default function Race({
   user,
   snippet,
   raceId,
+  participantId,
 }: {
+  participantId: RaceParticipant["id"];
   user?: User;
   snippet: Snippet;
   raceId?: string;
 }) {
-  console.log({ raceId });
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [raceStatus, setRaceStatus] = useState<
+    "waiting" | "running" | "finished"
+  >("waiting");
+  const [raceStartCountdown, setRaceStartCountdown] = useState<number | null>(
+    null,
+  );
   const [input, setInput] = useState("");
   const [textIndicatorPosition, setTextIndicatorPosition] = useState<
     number | number[]
@@ -77,7 +96,53 @@ export default function Race({
   const isRaceFinished = input === code;
   const showRaceTimer = !!startTime && !isRaceFinished;
 
+  function startGameLoop() {
+    socket.on(`RACE_${raceId}`, (payload: SocketPayload) => {
+      switch (payload.type) {
+        case "GAME_STATE_UPDATE":
+          const { raceState } = gameStateUpdatePayloadSchema.parse(
+            payload.payload,
+          );
+          setParticipants(raceState.participants);
+          setRaceStatus(raceState.status);
+          break;
+        case "USER_RACE_LEAVE":
+          const { participantId } = raceParticipantNotificationSchema.parse(
+            payload.payload,
+          );
+          setParticipants((participants) =>
+            participants.filter(
+              (participant) => participant.id !== participantId,
+            ),
+          );
+          break;
+        case "USER_RACE_ENTER":
+          const { participantId: _participantId } =
+            raceParticipantNotificationSchema.parse(payload.payload);
+          setParticipants((participants) => [
+            ...participants,
+            { id: _participantId, position: 0 },
+          ]);
+          break;
+        case "GAME_START_COUNTDOWN":
+          const { countdown } = gameStartCountdownPayloadSchema.parse(
+            payload.payload,
+          );
+          setRaceStartCountdown(countdown);
+          break;
+        case "GAME_START":
+          setStartTime(new Date());
+          break;
+      }
+    });
+  }
+
   async function endRace() {
+    if (raceId) {
+      await endRaceAction({
+        raceId,
+      });
+    }
     if (!startTime) return;
     const endTime = new Date();
     const timeTaken = (endTime.getTime() - startTime.getTime()) / 1000;
@@ -107,7 +172,17 @@ export default function Race({
   useEffect(() => {
     if (!raceId) return;
     getSocketConnection();
-    console.log("socket", socket);
+
+    socket.on("connect", () => {
+      socket.emit("USER_RACE_ENTER", {
+        raceId,
+        participantId,
+        socketId: socket.id,
+      } satisfies ParticipantRacePayload);
+
+      startGameLoop();
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -143,7 +218,10 @@ export default function Race({
     console.log(e.key);
     console.log("hit");
     if (!startTime) {
-      setStartTime(new Date());
+      if (!raceId) {
+        setStartTime(new Date());
+      } else {
+      }
     }
 
     // Unfocus Shift + Tab
@@ -397,9 +475,9 @@ export default function Race({
         for (let i = 0; i < input.length; i++) {
           if (i === textIndicatorPosition) {
             inputArray.push(e.key);
-            inputArray.push(input[i]);
+            inputArray.push(input[i]!);
           } else {
-            inputArray.push(input[i]);
+            inputArray.push(input[i]!);
           }
         }
         setInput(inputArray.join(""));
@@ -429,53 +507,79 @@ export default function Race({
 
   return (
     <>
+      <pre className="max-w-sm rounded p-8">
+        {JSON.stringify(
+          {
+            startTime,
+            raceStartCountdown,
+            raceStatus,
+            participants,
+          },
+          null,
+          4,
+        )}
+      </pre>
       <div
         className="relative flex flex-col w-3/4 gap-2 p-4 rounded-md lg:p-8 bg-accent"
         onClick={focusOnLoad}
         role="none" // eslint fix - will remove the semantic meaning of an element while still exposing it to assistive technology
       >
-        <RaceTracker
-          codeLength={code.length}
-          inputLength={input.length}
-          user={user}
-        />
-        <div className="mb-2 md:mb-4">
-          <Heading
-            title="Type this code"
-            description="Start typing to get racing"
-          />
-        </div>
-        <Code
-          code={code}
-          errors={errors}
-          userInput={input}
-          textIndicatorPosition={textIndicatorPosition}
-        />
-        <input
-          type="text"
-          defaultValue={input}
-          ref={inputElement}
-          onKeyDown={handleKeyboardDownEvent}
-          disabled={isRaceFinished}
-          className="absolute inset-y-0 left-0 w-full h-full p-8 rounded-md -z-40 focus:outline outline-blue-500"
-          onPaste={(e) => e.preventDefault()}
-        />
+        {raceStatus === "waiting" && !startTime && (
+          <div>Waiting for players...</div>
+        )}
+        {raceStatus === "running" &&
+          !startTime &&
+          Boolean(raceStartCountdown) && (
+            <div className="text-2xl font-bold text-center">
+              Game starting in: {raceStartCountdown}
+            </div>
+          )}
+        {raceStatus === "running" && startTime && (
+          <>
+            <RaceTracker
+              codeLength={code.length}
+              inputLength={input.length}
+              user={user}
+            />
+            <div className="mb-2 md:mb-4">
+              <Heading
+                title="Type this code"
+                description="Start typing to get racing"
+              />
+            </div>
+            <Code
+              code={code}
+              errors={errors}
+              userInput={input}
+              textIndicatorPosition={textIndicatorPosition}
+            />
+            <input
+              type="text"
+              defaultValue={input}
+              ref={inputElement}
+              onKeyDown={handleKeyboardDownEvent}
+              disabled={isRaceFinished}
+              className="absolute inset-y-0 left-0 w-full h-full p-8 rounded-md -z-40 focus:outline outline-blue-500"
+              onPaste={(e) => e.preventDefault()}
+            />
 
-        <div className="flex justify-between">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" onClick={handleRestart}>
-                  Restart (ESC)
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Press Esc to reset</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          {showRaceTimer && <RaceTimer />}
-        </div>
+            <div className="flex justify-between">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" onClick={handleRestart}>
+                      Restart (ESC)
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Press Esc to reset</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {showRaceTimer && <RaceTimer />}
+            </div>
+          </>
+        )}
       </div>
 
       <RaceDetails submittingResults={submittingResults} />

@@ -1,27 +1,29 @@
 {
-  "name": "@code-racer/wss",
-  "version": "0.1.0",
-  "main": "dist/index.js",
-  "types": "./index.ts",
-  "private": true,
-  "scripts": {
-    "dev": "concurrently \"tsup src --watch\"  \"node --watch dist/index.js\"",
-    "build": "tsup src --minify --clean",
-    "start": "node dist/index.js"
-  },
-  "dependencies": {
-    "@code-racer/db": "workspace:*",
-    "@code-racer/eslint-config": "workspace:*",
-    "@types/express": "^4.17.17",
-    "express": "^4.18.2",
-    "socket.io": "^4.7.1"
-  },
-  "devDependencies": {
-    "@types/node": "20.4.2",
-    "concurrently": "^8.2.0",
-    "dotenv-cli": "^7.2.1",
-    "prisma": "^5.0.0",
-    "tsup": "^7.1.0",
-    "typescript": "^5.1.6"
-  }
+    "name": "@code-racer/wss",
+    "version": "0.1.0",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "private": true,
+    "scripts": {
+        "dev": "concurrently \"tsup src --format cjs --sourcemap --watch --dts\"  \"node --watch dist/index.js\"",
+        "build": "tsup src --format cjs --minify --sourcemap --dts --clean",
+        "start": "node dist/index.js"
+    },
+    "dependencies": {
+        "@code-racer/db": "workspace:*",
+        "@code-racer/eslint-config": "workspace:*",
+        "@types/express": "^4.17.17",
+        "express": "^4.18.2",
+        "socket.io": "^4.7.1",
+        "tozod": "^3.0.0",
+        "zod": "^3.21.4"
+    },
+    "devDependencies": {
+        "@types/node": "20.4.2",
+        "concurrently": "^8.2.0",
+        "dotenv-cli": "^7.2.1",
+        "prisma": "^5.0.0",
+        "tsup": "^7.1.0",
+        "typescript": "^5.1.6"
+    }
 }

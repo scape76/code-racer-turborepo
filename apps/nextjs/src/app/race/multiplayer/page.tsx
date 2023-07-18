@@ -1,5 +1,9 @@
 import { getCurrentUser } from "@/lib/session";
-import { type Race as RaceType, prisma } from "@code-racer/db";
+import {
+  type Race as RaceType,
+  prisma,
+  type RaceParticipant,
+} from "@code-racer/db";
 import NoSnippet from "../no-snippet";
 import Race from "../race";
 
@@ -45,6 +49,7 @@ export default async function MultiplayerRacePage({
   }
 
   let raceToJoin: RaceType;
+  let participantId: RaceParticipant["id"];
 
   //Fetch available races and join one. if there none, create one.
 
@@ -60,17 +65,6 @@ export default async function MultiplayerRacePage({
   if (races.length === 0) {
     raceToJoin = await prisma.race.create({
       data: {
-        participants: {
-          create: {
-            user: user
-              ? {
-                  connect: {
-                    id: user.id,
-                  },
-                }
-              : undefined,
-          },
-        },
         snippet: {
           connect: {
             id: snippet.id,
@@ -82,11 +76,31 @@ export default async function MultiplayerRacePage({
     raceToJoin = races[Math.floor(Math.random() * races.length)]!;
   }
 
-  console.log(raceToJoin);
+  const participant = await prisma.raceParticipant.create({
+    data: {
+      user: user
+        ? {
+            connect: {
+              id: user.id,
+            },
+          }
+        : undefined,
+      Race: {
+        connect: {
+          id: raceToJoin.id,
+        },
+      },
+    },
+  });
 
   return (
     <main className="flex flex-col items-center justify-between py-10 lg:p-24">
-      <Race snippet={snippet} user={user} raceId={raceToJoin?.id} />
+      <Race
+        snippet={snippet}
+        user={user}
+        raceId={raceToJoin?.id}
+        participantId={participant.id}
+      />
     </main>
   );
 }

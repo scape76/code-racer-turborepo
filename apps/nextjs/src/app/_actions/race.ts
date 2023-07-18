@@ -11,7 +11,7 @@ export const createPrivateRaceRoom = action(z.object({}), async () => {
   throw new Error("Not implemented");
 });
 
-export const joinRace = action(
+export const joinRaceAction = action(
   z.object({
     raceId: z.string(),
   }),
@@ -50,7 +50,7 @@ export const joinRace = action(
   },
 );
 
-export const leaveRace = action(
+export const leaveRaceAction = action(
   z.object({
     raceId: z.string(),
   }),
@@ -83,6 +83,38 @@ export const leaveRace = action(
             id: user.id,
           },
         },
+      },
+    });
+  },
+);
+
+export const startRaceAction = action(
+  z.object({
+    raceId: z.string(),
+  }),
+  async ({ raceId }, { prisma }) => {
+    await prisma.race.update({
+      where: {
+        id: raceId,
+      },
+      data: {
+        startedAt: new Date(),
+      },
+    });
+  },
+);
+
+export const endRaceAction = action(
+  z.object({
+    raceId: z.string(),
+  }),
+  async ({ raceId }, { prisma }) => {
+    await prisma.race.update({
+      where: {
+        id: raceId,
+      },
+      data: {
+        endedAt: new Date(),
       },
     });
   },

@@ -4,27 +4,29 @@
 
 /** @type { PrettierConfig | SortImportsConfig | TailwindConfig } */
 const config = {
-  plugins: [
-    "@ianvs/prettier-plugin-sort-imports",
-    "prettier-plugin-tailwindcss",
-  ],
-  tailwindConfig: "./packages/config/tailwind",
-  importOrder: [
-    "^(react/(.*)$)|^(react$)|^(react-native(.*)$)",
-    "^(next/(.*)$)|^(next$)",
-    "^(expo(.*)$)|^(expo$)",
-    "<THIRD_PARTY_MODULES>",
-    "",
-    "^@code-racer/(.*)$",
-    "",
-    "^~/utils/(.*)$",
-    "^~/components/(.*)$",
-    "^~/styles/(.*)$",
-    "^~/(.*)$",
-    "^[./]",
-  ],
-  importOrderParserPlugins: ["typescript", "jsx", "decorators-legacy"],
-  importOrderTypeScriptVersion: "4.4.0",
-};
+    plugins: [
+        "@ianvs/prettier-plugin-sort-imports",
+        "prettier-plugin-tailwindcss",
+    ],
+    tailwindConfig: "./packages/config/tailwind",
+    importOrder: [
+        "^(react/(.*)$)|^(react$)|^(react-native(.*)$)",
+        "^(next/(.*)$)|^(next$)",
+        "^(expo(.*)$)|^(expo$)",
+        "<THIRD_PARTY_MODULES>",
+        "",
+        "^@code-racer/(.*)$",
+        "",
+        "^~/utils/(.*)$",
+        "^~/components/(.*)$",
+        "^~/styles/(.*)$",
+        "^~/(.*)$",
+        "^[./]",
+    ],
+    importOrderParserPlugins: ["typescript", "jsx", "decorators-legacy"],
+    importOrderTypeScriptVersion: "4.4.0",
+    tabWidth: 4,
+    semi: false,
+}
 
-export default config;
+export default config
