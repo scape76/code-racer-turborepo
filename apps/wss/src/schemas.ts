@@ -22,7 +22,7 @@ export type RaceParticipantNotification = z.infer<
 export const gameStateUpdatePayloadSchema = z.object({
     raceState: z.object({
         id: z.string(),
-        status: z.enum(["waiting", "running", "finished"]),
+        status: z.enum(["waiting", "countdown", "running", "finished"]),
         participants: z.array(
             z.object({
                 id: z.string(),
@@ -30,17 +30,10 @@ export const gameStateUpdatePayloadSchema = z.object({
                 position: z.number(),
             }),
         ),
+        countdown: z.number().int().optional(),
     }),
 })
 
 export type GameStateUpdatePayload = z.infer<
     typeof gameStateUpdatePayloadSchema
->
-
-export const gameStartCountdownPayloadSchema = z.object({
-    countdown: z.number().int(),
-})
-
-export type GameStartCountdownPayload = z.infer<
-    typeof gameStartCountdownPayloadSchema
 >

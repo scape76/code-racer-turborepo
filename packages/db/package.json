@@ -8,8 +8,8 @@
         "clean": "rm -rf .turbo node_modules",
         "db:generate": "pnpm with-env prisma generate",
         "db:push": "pnpm with-env prisma db push --skip-generate",
-        "dev": "pnpm with-env tsup index.ts --format cjs --sourcemap --watch --dts && pnpm with-env prisma studio --port 5556",
-        "build": "pnpm with-env tsup src --format cjs --sourcemap --watch --minify --dts",
+        "dev": "pnpm with-env tsup index.ts --format cjs --sourcemap --dts && pnpm with-env prisma studio --port 5556",
+        "build": "pnpm with-env tsup src --format cjs --sourcemap --minify --dts",
         "with-env": "dotenv -e ../../.env --"
     },
     "dependencies": {

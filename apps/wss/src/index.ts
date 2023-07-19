@@ -1,18 +1,15 @@
-import http from "node:http"
 import express from "express"
+import http from "node:http"
 import { Server } from "socket.io"
 
-import { prisma, RaceParticipant, type Race } from "@code-racer/db"
+import { RaceParticipant, prisma, type Race } from "@code-racer/db"
 
-// import { prisma } from "../../db/dist"
 import { SocketEvents, SocketPayload } from "./events"
-import { explode, RaceFullException } from "./exceptions"
+import { RaceFullException, explode } from "./exceptions"
 import {
-    GameStartCountdownPayload,
-    gameStateUpdatePayloadSchema,
     ParticipantRacePayload,
-    participantRacePayloadSchema,
     RaceParticipantNotification,
+    participantRacePayloadSchema
 } from "./schemas"
 
 const PORT = 3001
@@ -34,7 +31,7 @@ class Game {
     private races = new Map<
         Race["id"],
         {
-            status: "waiting" | "running" | "finished"
+            status: "waiting" | "countdown" | "running" | "finished"
             participants: {
                 id: RaceParticipant["id"]
                 socketId: string
@@ -109,14 +106,7 @@ class Game {
         }
 
         // Attach an event listener to the "GAME_START" event to start the race.
-        this.server.on(
-            `RACE_${parsedPayload.raceId}`,
-            (payload: SocketPayload) => {
-                if (payload.type === "GAME_START") {
-                    this.startRace(parsedPayload.raceId)
-                }
-            },
-        )
+        console.log({ raceId: parsedPayload.raceId }, "\n")
 
         console.log("Races: ", this.races)
 
@@ -151,19 +141,30 @@ class Game {
         } satisfies SocketPayload)
 
         if (race.participants.length === 0) {
-            this.endRace(parsedPayload.raceId)
+            await this.endRace(parsedPayload.raceId)
         }
 
         console.log("Races: ", this.races)
     }
 
     private startRace(raceId: string) {
-        const interval = setInterval(() => {
+        const interval = setInterval(async () => {
             const race = this.races.get(raceId)
             if (race) {
                 if (race.status !== "running") {
                     race.status = "running"
+                    console.log("Started race: ", raceId)
+                    await this.db.race.update({
+                        where: {
+                            id: raceId,
+                        },
+                        data: {
+                            startedAt: new Date(),
+                        },
+                    })
                 }
+
+                console.log("Emitting game loop for race:", raceId)
 
                 this.server.emit(`RACE_${raceId}`, {
                     type: "GAME_STATE_UPDATE",
@@ -175,7 +176,7 @@ class Game {
         }, Game.GAME_LOOP_INTERVAL)
     }
 
-    private endRace(raceId: string) {
+    private async endRace(raceId: string) {
         const race =
             this.races.get(raceId) ?? explode("Why tf would this happen?")
 
@@ -187,7 +188,7 @@ class Game {
         } as SocketPayload)
 
         this.races.delete(raceId)
-        this.db.race.update({
+        await this.db.race.update({
             where: {
                 id: raceId,
             },
@@ -204,19 +205,40 @@ class Game {
 
         const countdownPromise = new Promise<void>((resolve) => {
             let countdown = Game.START_GAME_COUNTDOWN
+            const race = this.races.get(raceId) ?? explode("Bruh ☠️")
+
             const interval = setInterval(() => {
                 this.server.emit(`RACE_${raceId}`, {
-                    type: "GAME_START_COUNTDOWN",
-                    payload: { countdown },
+                    type: "GAME_STATE_UPDATE",
+                    payload: {
+                        raceState: {
+                            ...race,
+                            status: "countdown",
+                            id: raceId,
+                            countdown,
+                        },
+                    },
                 } satisfies SocketPayload)
+
+                console.log(`Race: ${raceId} Countdown: ${countdown}`)
+
                 countdown--
 
                 if (countdown === 0) {
-                    clearInterval(interval)
                     this.server.emit(`RACE_${raceId}`, {
-                        type: "GAME_START",
-                        payload: undefined,
+                        type: "GAME_STATE_UPDATE",
+                        payload: {
+                            raceState: {
+                                ...race,
+                                status: "countdown",
+                                id: raceId,
+                                countdown,
+                            },
+                        },
                     } satisfies SocketPayload)
+
+                    this.startRace(raceId)
+                    clearInterval(interval)
                     resolve()
                 }
             }, 1000)
